@@ -1,0 +1,136 @@
+---
+title: "DESeq on Pauline data"
+author: "Pauline"
+date: "6 juin 2018"
+output: html_document
+---
+Zebrafish caudal fin regeneration in adults vs fin fold regeneration in zebrafish larvae
+
+# Info about raw data
+
+```{r, echo=F, message=F, warning=F}
+rm(list=ls())
+## Path to the input files
+indir="J:\\Pauline J\\Pauline"
+
+## Name of read count file
+count_file="counts_raw.txt"
+
+## Name of the metadata file
+MD="metadata.txt"
+
+## Name of the annotation file
+annot.file="annotation.txt"
+
+## Path to the output directory
+outdir="J:\\Pauline J\\Pauline\\DESeq"
+
+### File importation
+
+setwd(indir)
+library(data.table, quietly = T, warn.conflicts = F)
+rawcounts=fread(count_file, data.table = F)
+metadata=read.table(MD, header=T)
+
+### Expressed genes
+
+print(paste("Read counts for", nrow(rawcounts), "genes", sep=" "))
+
+rownames(rawcounts)=rawcounts$Gene_ID
+rawcounts=rawcounts[,-1]
+
+w=which(rowSums(rawcounts)==0)
+print(paste(length(w), "genes are expressed in none of the samples"))
+
+```
+
+# DESeq on adult samples
+
+```{r, message=F, warning=F}
+metaAdult=metadata[metadata$Stade=="Adult",]
+count=rawcounts[,match(metaAdult$Bam_File_Name, colnames(rawcounts))]
+
+info=metaAdult[,4:5]
+rownames(info)=colnames(count) 
+
+library(DESeq2, quietly = T, warn.conflicts = F)
+dds=DESeqDataSetFromMatrix(countData=count, colData=info, design=~Lignes+Condition)
+
+dds0 <- estimateSizeFactors(dds)
+
+log.norm.counts <- log2(counts(dds0, normalized=TRUE) + 1)
+norm.counts <- counts(dds0, normalized=TRUE)
+#setwd(outdir)
+#write.table(norm.counts, "Adult_DESeq_normalized_data.txt", sep="\t", quote=F, dec=",")
+
+normPCA=t(norm.counts)
+normPCA=data.frame(metaAdult[,4:5], normPCA, row.names = metaAdult$Description)
+library(FactoMineR, quietly = T, warn.conflicts = F)
+res.pca=PCA(normPCA, quali.sup = 1:2, graph=F)
+plot.PCA(res.pca, choix="ind", habillage=1, axes=c(1,2), label = "quali")
+plot.PCA(res.pca, choix="ind", habillage=2, axes=c(1,2), label = "quali")
+
+dd=dimdesc(res.pca)
+
+#Correlation of illustrative variables to the PCA axe 1
+dd$Dim.1$quali
+#Correlation of illustrative variables to the PCA axe 2
+dd$Dim.2$quali
+```
+
+--> The 1st and 2nd axis of the PCA represent about 45% of the total variation and are correlated with the condition.
+
+--> The first axis separate the ablated samples from the samples before ablation and complete regeneration. 
+
+## 2dpa vs 0dpa
+
+```{r, echo=T, message=F, warning=F}
+dds0 <- DESeq(dds0)
+#resultsNames(dds0)
+res20 <- results(dds0, name="Condition_2dpa_vs_0dpa")
+#Number of DE genes :
+table(res20$padj < 0.05)
+```
+
+## 3dpa vs 2dpa
+
+```{r, echo=T, message=F, warning=F}
+dds=DESeqDataSetFromMatrix(countData=count, colData=info, design=~Lignes+Condition)
+dds$Condition <- relevel(dds$Condition, ref = "2dpa")
+
+dds2 <- estimateSizeFactors(dds)
+dds2 <- DESeq(dds2)
+#resultsNames(dds2)
+res23 <- results(dds2, name="Condition_3dpa_vs_2dpa")
+print("Number of DE genes :")
+table(res23$padj < 0.05)
+```
+
+
+## 10dpa vs 3dpa
+
+```{r, echo=F, message=F, warning=F}
+dds=DESeqDataSetFromMatrix(countData=count, colData=info, design=~Lignes+Condition)
+dds$Condition <- relevel(dds$Condition, ref = "3dpa")
+
+dds3 <- estimateSizeFactors(dds)
+dds3 <- DESeq(dds3)
+#resultsNames(dds3)
+res23 <- results(dds3, name="Condition_10dpa_vs_3dpa")
+print("Number of DE genes :")
+table(res23$padj < 0.05)
+```
+
+## 0dpa vs 10dpa
+
+```{r, echo=F, message=F, warning=F}
+dds=DESeqDataSetFromMatrix(countData=count, colData=info, design=~Lignes+Condition)
+dds$Condition <- relevel(dds$Condition, ref = "10dpa")
+
+dds10 <- estimateSizeFactors(dds)
+dds10 <- DESeq(dds10)
+#resultsNames(dds10)
+res010 <- results(dds10, name="Condition_0dpa_vs_10dpa")
+print("Number of DE genes :")
+table(res010$padj < 0.05)
+```
