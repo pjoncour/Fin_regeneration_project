@@ -12,6 +12,13 @@ Zebrafish caudal fin regeneration in adults vs fin fold regeneration in zebrafis
 rm(list=ls())
 ## Path to the input files
 indir="J:\\Pauline J\\Pauline"
+## Chez Marie
+indir="/home/msemon/Documents/ProjetPauline/Fin_regeneration_project"
+
+## Path to the output directory
+outdir="J:\\Pauline J\\Pauline\\DESeq"
+## Chez Marie
+outdir="/home/msemon/Documents/ProjetPauline/Fin_regeneration_project"
 
 ## Name of read count file
 count_file="counts_raw.txt"
@@ -22,8 +29,7 @@ MD="metadata.txt"
 ## Name of the annotation file
 annot.file="annotation.txt"
 
-## Path to the output directory
-outdir="J:\\Pauline J\\Pauline\\DESeq"
+
 
 ### File importation
 
