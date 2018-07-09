@@ -140,3 +140,94 @@ res010 <- results(dds10, name="Condition_0dpa_vs_10dpa")
 print("Number of DE genes :")
 table(res010$padj < 0.05)
 ```
+
+
+# DESeq on embryo samples
+
+```{r, message=F, warning=F}
+metaEmbryo=metadata[metadata$Stade=="Larvae",]
+count=rawcounts[,match(metaEmbryo$Bam_File_Name, colnames(rawcounts))]
+
+info=metaEmbryo[,4:5]
+rownames(info)=colnames(count) 
+
+library(DESeq2, quietly = T, warn.conflicts = F)
+dds=DESeqDataSetFromMatrix(countData=count, colData=info, design=~Lignes+Condition)
+
+dds0 <- estimateSizeFactors(dds)
+
+log.norm.counts <- log2(counts(dds0, normalized=TRUE) + 1)
+norm.counts <- counts(dds0, normalized=TRUE)
+#setwd(outdir)
+#write.table(norm.counts, "Embryo_DESeq_normalized_data.txt", sep="\t", quote=F, dec=",")
+
+
+### PCA on ablated samples (development samples as illustrative samples)
+normPCA=t(norm.counts)
+normPCA=data.frame(metaEmbryo[,4:5], normPCA, row.names = metaEmbryo$Description)
+w=which(metaEmbryo$Condition%in%c("80hpf", "6jpf"))
+
+library(FactoMineR, quietly = T, warn.conflicts = F)
+res.pca=PCA(normPCA, quali.sup = 1:2,ind.sup=w,graph=F)
+plot.PCA(res.pca, choix="ind", habillage=2, axes=c(1,2), label = "quali")
+
+res.pca$quali.sup$coord
+res.pca$ind.sup$coord
+res.pca$quali.sup$coord[6,]=colMeans(res.pca$ind.sup$coord[c(2,4,5),])
+res.pca$quali.sup$coord[7,]=colMeans(res.pca$ind.sup$coord[c(1,3,6),])
+
+plot.PCA(res.pca, choix="ind", habillage=2, axes=c(1,2), label = "quali")
+
+
+dd=dimdesc(res.pca, proba=0.1)
+
+#Correlation of illustrative variables to the PCA axe 1
+dd$Dim.1$category
+#Correlation of illustrative variables to the PCA axe 2
+dd$Dim.2$category
+```
+
+--> The 1st and 2nd axis of the PCA represent about 49% of the total variation and are correlated with the condition.
+
+--> The first axis separate the ablated samples from the samples before ablation 
+
+--> The second axis separate after regeneration samples from the others. 
+
+## 8hpa vs 0hpa
+
+```{r, echo=T, message=F, warning=F}
+dds0 <- DESeq(dds0)
+#resultsNames(dds0)
+res20 <- results(dds0, name="Condition_8hpa_vs_0hpa")
+#Number of DE genes :
+table(res20$padj < 0.05)
+```
+
+## 3jpa vs 8hpa
+
+```{r, echo=T, message=F, warning=F}
+dds=DESeqDataSetFromMatrix(countData=count, colData=info, design=~Lignes+Condition)
+dds$Condition <- relevel(dds$Condition, ref = "8hpa")
+
+dds2 <- estimateSizeFactors(dds)
+dds2 <- DESeq(dds2)
+#resultsNames(dds2)
+res23 <- results(dds2, name="Condition_3jpa_vs_8hpa")
+print("Number of DE genes :")
+table(res23$padj < 0.05)
+```
+
+
+## 0dpa vs 3jpa
+
+```{r, echo=F, message=F, warning=F}
+dds=DESeqDataSetFromMatrix(countData=count, colData=info, design=~Lignes+Condition)
+dds$Condition <- relevel(dds$Condition, ref = "3jpa")
+
+dds3 <- estimateSizeFactors(dds)
+dds3 <- DESeq(dds3)
+#resultsNames(dds3)
+res03 <- results(dds3, name="Condition_0hpa_vs_3jpa")
+print("Number of DE genes :")
+table(res03$padj < 0.05)
+```
