@@ -13,12 +13,12 @@ rm(list=ls())
 ## Path to the input files
 indir="J:\\Pauline J\\Pauline"
 ## Chez Marie
-indir="/home/msemon/Documents/ProjetPauline/Fin_regeneration_project"
+#indir="/home/msemon/Documents/ProjetPauline/Fin_regeneration_project"
 
 ## Path to the output directory
 outdir="J:\\Pauline J\\Pauline\\DESeq"
 ## Chez Marie
-outdir="/home/msemon/Documents/ProjetPauline/Fin_regeneration_project"
+#outdir="/home/msemon/Documents/ProjetPauline/Fin_regeneration_project"
 
 ## Name of read count file
 count_file="counts_raw.txt"
@@ -169,10 +169,8 @@ w=which(metaEmbryo$Condition%in%c("80hpf", "6jpf"))
 
 library(FactoMineR, quietly = T, warn.conflicts = F)
 res.pca=PCA(normPCA, quali.sup = 1:2,ind.sup=w,graph=F)
-plot.PCA(res.pca, choix="ind", habillage=2, axes=c(1,2), label = "quali")
+#plot.PCA(res.pca, choix="ind", habillage=2, axes=c(1,2), label = "quali")
 
-res.pca$quali.sup$coord
-res.pca$ind.sup$coord
 res.pca$quali.sup$coord[6,]=colMeans(res.pca$ind.sup$coord[c(2,4,5),])
 res.pca$quali.sup$coord[7,]=colMeans(res.pca$ind.sup$coord[c(1,3,6),])
 
