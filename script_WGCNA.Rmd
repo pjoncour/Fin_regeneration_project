@@ -1,0 +1,190 @@
+---
+title: "WGCNA"
+author: "Pauline J"
+date: "23 juillet 2018"
+output: html_document
+---
+
+##  Step 1: Data input and cleaning
+
+### Load library
+
+```{r import library, message=F, warning=F}
+
+setwd("J:\\Pauline J\\Pauline\\Fin_regeneration_project")
+
+##source("http://bioconductor.org/biocLite.R") 
+##biocLite(c("AnnotationDbi", "impute", "GO.db", "preprocessCore")) 
+##install.packages("WGCNA")
+library(impute)
+library(WGCNA)
+```
+
+### Import file
+
+```{r}
+options(stringsAsFactors = FALSE)
+
+AdultData=read.table("Adult_DESeq_normalized_data.txt", sep="\t", dec=",", header=T)
+EmbryoData=read.table("Embryo_DESeq_normalized_data.txt", sep="\t", dec=",", header=T)
+Metadata=read.table("metadata.txt", header=T, sep="\t")
+Metadata$Bam_File_Name=gsub("-",".",Metadata$Bam_File_Name)
+
+wA=which(rowSums(AdultData)==0)
+wE=which(rowSums(EmbryoData)==0)
+w=wA[wA%in%wE]
+
+AdultData=AdultData[-w,]
+EmbryoData=EmbryoData[-w,]
+
+colnames(AdultData)=Metadata$Description[match(colnames(AdultData),Metadata$Bam_File_Name)]
+colnames(EmbryoData)=Metadata$Description[match(colnames(EmbryoData),Metadata$Bam_File_Name)]
+```
+
+### Load expression data into a multi-set format
+
+```{r}
+# Number of sets:
+nSets = 2;
+# Descriptive names of the two sets.
+setLabels = c("Adult Zebrafish", "Embryo Zebrafish")
+shortLabels = c("Adult", "Embryo")
+# Form multi-set expression data
+multiExpr = vector(mode = "list", length = nSets)
+multiExpr[[1]] = list(data = as.data.frame(t(AdultData)));
+names(multiExpr[[1]]$data) = rownames(AdultData);
+rownames(multiExpr[[1]]$data) = names(AdultData);
+multiExpr[[2]] = list(data = as.data.frame(t(EmbryoData)));
+names(multiExpr[[2]]$data) = rownames(EmbryoData);
+rownames(multiExpr[[2]]$data) = names(EmbryoData);
+# Check that the data has the correct format for many functions operating on multiple sets:
+exprSize = checkSets(multiExpr)
+
+```
+
+### Check that all genes and samples have sufficiently low numbers of missing values.
+
+```{r}
+gsg = goodSamplesGenesMS(multiExpr, verbose = 3);
+
+#Keep only good genes
+multiExpr[[1]]$data=multiExpr[[1]]$data[gsg$goodGenes]
+multiExpr[[2]]$data=multiExpr[[2]]$data[gsg$goodGenes]
+```
+
+
+### Cluster the samples on their Euclidean distance, separately in each set.
+
+```{r}
+sampleTrees = list()
+for (set in 1:nSets){
+sampleTrees[[set]] = hclust(dist(multiExpr[[set]]$data), method = "average")
+}
+
+for (set in 1:nSets){
+  plot(sampleTrees[[set]], main = paste("Sample clustering on all genes in", setLabels[set]),
+       xlab="", sub="", cex = 0.7)
+}
+
+```
+
+### Form a multi-set structure that will hold the clinical traits.
+
+```{r}
+Traits = vector(mode="list", length = nSets);
+for (set in 1:nSets){
+  setSamples = rownames(multiExpr[[set]]$data);
+  traitRows = match(setSamples, Metadata$Description);
+  Traits[[set]] = list(data = Metadata[traitRows, 5:8]);
+  rownames(Traits[[set]]$data) = Metadata[traitRows, 1];
+}
+collectGarbage();
+# Define data set dimensions
+nGenes = exprSize$nGenes;
+nSamples = exprSize$nSamples;
+
+
+save(multiExpr, Traits, nGenes, nSamples, setLabels, shortLabels, exprSize,
+     file = "Consensus-dataInput.RData")
+
+```
+
+
+## Network construction and module detection
+
+### Choosing the soft-thresholding power: analysis of network topology
+
+```{r}
+# Choose a set of soft-thresholding powers
+powers = c(seq(4,10,by=1), seq(12,20, by=2));
+# Initialize a list to hold the results of scale-free analysis
+powerTables = vector(mode = "list", length = nSets);
+# Call the network topology analysis function for each set in turn
+for (set in 1:nSets){
+  powerTables[[set]] = list(data = pickSoftThreshold(multiExpr[[set]]$data, powerVector=powers,
+                                                     verbose = 2)[[2]]);
+}
+collectGarbage();
+# Plot the results:
+colors = c("black", "red")
+# Will plot these columns of the returned scale free analysis tables
+plotCols = c(2,5,6,7)
+colNames = c("Scale Free Topology Model Fit", "Mean connectivity", "Median connectivity",
+             "Max connectivity");
+
+# Get the minima and maxima of the plotted points
+ylim = matrix(NA, nrow = 2, ncol = 4);
+for (set in 1:nSets){
+  for (col in 1:length(plotCols)){
+    ylim[1, col] = min(ylim[1, col], powerTables[[set]]$data[, plotCols[col]], na.rm = TRUE);
+    ylim[2, col] = max(ylim[2, col], powerTables[[set]]$data[, plotCols[col]], na.rm = TRUE);
+  }
+}
+# Plot the quantities in the chosen columns vs. the soft thresholding power
+sizeGrWindow(8, 6)
+
+par(mfcol = c(2,2));
+par(mar = c(4.2, 4.2 , 2.2, 0.5))
+cex1 = 0.7;
+for (col in 1:length(plotCols)) for (set in 1:nSets){
+  if (set==1){
+    plot(powerTables[[set]]$data[,1], -sign(powerTables[[set]]$data[,3])*powerTables[[set]]$data[,2],
+         xlab="Soft Threshold (power)",ylab=colNames[col],type="n", ylim = ylim[, col],
+         main = colNames[col]);
+    addGrid();
+  }
+  if (col==1){
+    text(powerTables[[set]]$data[,1], -sign(powerTables[[set]]$data[,3])*powerTables[[set]]$data[,2],
+    labels=powers,cex=cex1,col=colors[set]);
+    legend("bottomright", legend = setLabels, col = colors, pch = 20) ;
+  }else{
+    text(powerTables[[set]]$data[,1], powerTables[[set]]$data[,plotCols[col]],
+    labels=powers,cex=cex1,col=colors[set]);
+    legend("topright", legend = setLabels, col = colors, pch = 20) ;
+  }
+}
+
+
+```
+
+###  Network construction and consensus module detection
+
+```{r}
+net = blockwiseConsensusModules(multiExpr, power = 10, minModuleSize = 30, deepSplit =2,
+                                pamRespectsDendro = FALSE,
+                                mergeCutHeight = 0.25, numericLabels = TRUE,
+                                minKMEtoStay = 0,saveTOMs = TRUE, verbose = 5)
+
+consMEs = net$multiMEs;
+moduleLabels = net$colors;
+# Convert the numeric labels to color labels
+moduleColors = labels2colors(moduleLabels)
+consTree = net$dendrograms[[1]];
+
+sizeGrWindow(8,6);
+
+plotDendroAndColors(consTree, moduleColors[net$blockGenes[[1]]],"Module colors",dendroLabels = FALSE, 
+                    hang = 0.03,addGuide = TRUE, guideHang = 0.05,
+                    main = "Consensus gene dendrogram and module colors")
+```
+
