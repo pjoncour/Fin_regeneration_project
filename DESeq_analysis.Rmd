@@ -11,12 +11,12 @@ Zebrafish caudal fin regeneration in adults vs fin fold regeneration in zebrafis
 ```{r, echo=F, message=F, warning=F}
 rm(list=ls())
 ## Path to the input files
-indir="J:\\Pauline J\\Pauline"
+indir="J:\\Pauline J\\Pauline\\Fin_regeneration_project/"
 ## Chez Marie
 #indir="/home/msemon/Documents/ProjetPauline/Fin_regeneration_project"
 
 ## Path to the output directory
-outdir="J:\\Pauline J\\Pauline\\DESeq"
+outdir="J:\\Pauline J\\Pauline\\Fin_regeneration_project\\DESeq"
 ## Chez Marie
 #outdir="/home/msemon/Documents/ProjetPauline/Fin_regeneration_project"
 
@@ -37,6 +37,7 @@ setwd(indir)
 library(data.table, quietly = T, warn.conflicts = F)
 rawcounts=fread(count_file, data.table = F)
 metadata=read.table(MD, header=T)
+metadata$Description=gsub("-", "_", metadata$Description)
 
 ### Expressed genes
 
@@ -56,7 +57,8 @@ print(paste(length(w), "genes are expressed in none of the samples"))
 metaAdult=metadata[metadata$Stade=="Adult",]
 count=rawcounts[,match(metaAdult$Bam_File_Name, colnames(rawcounts))]
 
-info=metaAdult[,4:5]
+info=metaAdult[,c(4,5)]
+colnames(info)[2]="Condition"
 rownames(info)=colnames(count) 
 
 library(DESeq2, quietly = T, warn.conflicts = F)
@@ -70,7 +72,7 @@ norm.counts <- counts(dds0, normalized=TRUE)
 #write.table(norm.counts, "Adult_DESeq_normalized_data.txt", sep="\t", quote=F, dec=",")
 
 normPCA=t(norm.counts)
-normPCA=data.frame(metaAdult[,4:5], normPCA, row.names = metaAdult$Description)
+normPCA=data.frame(metaAdult[,c(4,9)], normPCA, row.names = metaAdult$Description)
 library(FactoMineR, quietly = T, warn.conflicts = F)
 res.pca=PCA(normPCA, quali.sup = 1:2, graph=F)
 plot.PCA(res.pca, choix="ind", habillage=1, axes=c(1,2), label = "quali")
@@ -96,6 +98,15 @@ dds0 <- DESeq(dds0)
 res20 <- results(dds0, name="Condition_2dpa_vs_0dpa")
 #Number of DE genes :
 table(res20$padj < 0.05)
+
+setwd(outdir)
+nc1=grep("2dpa", metaAdult$Description)
+nc2=grep("_0dpa", metaAdult$Description)
+res20$Mean1=rowMeans(norm.counts[,nc1])
+res20$Mean2=rowMeans(norm.counts[,nc2])
+res20$FC=ifelse(res20$Mean1>res20$Mean2,res20$Mean1/res20$Mean2, -res20$Mean2/res20$Mean1)
+colnames(res20)[7:8]=c("Mean_2dpa","Mean_0dpa")
+#write.table(res20, "Adult_2dpa_vs_0dpa.txt", sep="\t", quote=F, dec=",")
 ```
 
 ## 3dpa vs 2dpa
@@ -110,35 +121,60 @@ dds2 <- DESeq(dds2)
 res23 <- results(dds2, name="Condition_3dpa_vs_2dpa")
 print("Number of DE genes :")
 table(res23$padj < 0.05)
+
+nc1=grep("3dpa", metaAdult$Description)
+nc2=grep("2dpa", metaAdult$Description)
+res23$Mean1=rowMeans(norm.counts[,nc1])
+res23$Mean2=rowMeans(norm.counts[,nc2])
+res23$FC=ifelse(res23$Mean1>res23$Mean2,res23$Mean1/res23$Mean2, -res23$Mean2/res23$Mean1)
+colnames(res23)[7:8]=c("Mean_3dpa","Mean_2dpa")
+#write.table(res23, "Adult_3dpa_vs_2dpa.txt", sep="\t", quote=F, dec=",")
+
 ```
 
 
 ## 10dpa vs 3dpa
 
-```{r, echo=F, message=F, warning=F}
+```{r, echo=T, message=F, warning=F}
 dds=DESeqDataSetFromMatrix(countData=count, colData=info, design=~Lignes+Condition)
 dds$Condition <- relevel(dds$Condition, ref = "3dpa")
 
 dds3 <- estimateSizeFactors(dds)
 dds3 <- DESeq(dds3)
 #resultsNames(dds3)
-res23 <- results(dds3, name="Condition_10dpa_vs_3dpa")
+res103 <- results(dds3, name="Condition_10dpa_vs_3dpa")
 print("Number of DE genes :")
-table(res23$padj < 0.05)
+table(res103$padj < 0.05)
+
+nc1=grep("10dpa", metaAdult$Description)
+nc2=grep("3dpa", metaAdult$Description)
+res103$Mean1=rowMeans(norm.counts[,nc1])
+res103$Mean2=rowMeans(norm.counts[,nc2])
+res103$FC=ifelse(res103$Mean1>res103$Mean2,res103$Mean1/res103$Mean2, -res103$Mean2/res103$Mean1)
+colnames(res103)[7:8]=c("Mean_10dpa","Mean_3dpa")
+#write.table(res103, "Adult_10dpa_vs_3dpa.txt", sep="\t", quote=F, dec=",")
 ```
 
-## 0dpa vs 10dpa
+## 10dpa vs 0dpa
 
-```{r, echo=F, message=F, warning=F}
+```{r, echo=T, message=F, warning=F}
 dds=DESeqDataSetFromMatrix(countData=count, colData=info, design=~Lignes+Condition)
-dds$Condition <- relevel(dds$Condition, ref = "10dpa")
+dds$Condition <- relevel(dds$Condition, ref = "0dpa")
 
 dds10 <- estimateSizeFactors(dds)
 dds10 <- DESeq(dds10)
 #resultsNames(dds10)
-res010 <- results(dds10, name="Condition_0dpa_vs_10dpa")
+res010 <- results(dds10, name="Condition_10dpa_vs_0dpa")
 print("Number of DE genes :")
 table(res010$padj < 0.05)
+
+nc1=grep("10dpa", metaAdult$Description)
+nc2=grep("0dpa", metaAdult$Description)
+res010$Mean1=rowMeans(norm.counts[,nc1])
+res010$Mean2=rowMeans(norm.counts[,nc2])
+res010$FC=ifelse(res010$Mean1>res010$Mean2,res010$Mean1/res010$Mean2, -res010$Mean2/res010$Mean1)
+colnames(res010)[7:8]=c("Mean_10dpa","Mean_0dpa")
+write.table(res010, "Adult_10dpa_vs_0dpa.txt", sep="\t", quote=F, dec=",")
 ```
 
 
@@ -148,7 +184,8 @@ table(res010$padj < 0.05)
 metaEmbryo=metadata[metadata$Stade=="Larvae",]
 count=rawcounts[,match(metaEmbryo$Bam_File_Name, colnames(rawcounts))]
 
-info=metaEmbryo[,4:5]
+info=metaEmbryo[,c(4,5)]
+colnames(info)[2]="Condition"
 rownames(info)=colnames(count) 
 
 library(DESeq2, quietly = T, warn.conflicts = F)
@@ -164,14 +201,14 @@ norm.counts <- counts(dds0, normalized=TRUE)
 
 ### PCA on ablated samples (development samples as illustrative samples)
 normPCA=t(norm.counts)
-normPCA=data.frame(metaEmbryo[,4:5], normPCA, row.names = metaEmbryo$Description)
-w=which(metaEmbryo$Condition%in%c("80hpf", "6jpf"))
+normPCA=data.frame(metaEmbryo[,c(4,9)], normPCA, row.names = metaEmbryo$Description)
+w=which(metaEmbryo$Condition%in%c("Larvae_80hpf_0hpa", "Larvae_144hpf_0hpa"))
 
-library(FactoMineR, quietly = T, warn.conflicts = F)
+#library(FactoMineR, quietly = T, warn.conflicts = F)
 res.pca=PCA(normPCA, quali.sup = 1:2,ind.sup=w,graph=F)
 #plot.PCA(res.pca, choix="ind", habillage=2, axes=c(1,2), label = "quali")
 
-res.pca$quali.sup$coord[6,]=colMeans(res.pca$ind.sup$coord[c(2,4,5),])
+res.pca$quali.sup$coord[4,]=colMeans(res.pca$ind.sup$coord[c(2,4,5),])
 res.pca$quali.sup$coord[7,]=colMeans(res.pca$ind.sup$coord[c(1,3,6),])
 
 plot.PCA(res.pca, choix="ind", habillage=2, axes=c(1,2), label = "quali")
@@ -196,10 +233,46 @@ dd$Dim.2$category
 ```{r, echo=T, message=F, warning=F}
 dds0 <- DESeq(dds0)
 #resultsNames(dds0)
-res20 <- results(dds0, name="Condition_8hpa_vs_0hpa")
+res80 <- results(dds0, name="Condition_8hpa_vs_0hpa")
 #Number of DE genes :
-table(res20$padj < 0.05)
+table(res80$padj < 0.05)
+
+setwd(outdir)
+nc1=grep("8hpa", metaEmbryo$Description)
+nc2=grep("0hpa", metaEmbryo$Description)
+res80$Mean1=rowMeans(norm.counts[,nc1])
+res80$Mean2=rowMeans(norm.counts[,nc2])
+res80$FC=ifelse(res80$Mean1>res80$Mean2,res80$Mean1/res80$Mean2, -res80$Mean2/res80$Mean1)
+colnames(res80)[7:8]=c("Mean_8hpa","Mean_0hpa")
+#write.table(res80, "Embryo_8hpa_vs_0hpa.txt", sep="\t", quote=F, dec=",")
 ```
+
+
+## 8hpa vs 80hpf
+
+```{r, echo=T, message=F, warning=F}
+dds=DESeqDataSetFromMatrix(countData=count, colData=info, design=~Lignes+Condition)
+dds$Condition <- relevel(dds$Condition, ref = "80hpf")
+
+dds2 <- estimateSizeFactors(dds)
+dds2 <- DESeq(dds2)
+
+#resultsNames(dds0)
+res880 <- results(dds2, name="Condition_8hpa_vs_80hpf")
+#Number of DE genes :
+table(res880$padj < 0.05)
+
+setwd(outdir)
+nc1=grep("8hpa", metaEmbryo$Description)
+nc2=grep("80hpf", metaEmbryo$Description)
+res880$Mean1=rowMeans(norm.counts[,nc1])
+res880$Mean2=rowMeans(norm.counts[,nc2])
+res880$FC=ifelse(res880$Mean1>res880$Mean2,res880$Mean1/res880$Mean2, -res880$Mean2/res880$Mean1)
+colnames(res880)[7:8]=c("Mean_8hpa","Mean_80hpf")
+#write.table(res880, "Embryo_8hpa_vs_80hpf.txt", sep="\t", quote=F, dec=",")
+```
+
+
 
 ## 3jpa vs 8hpa
 
@@ -210,22 +283,62 @@ dds$Condition <- relevel(dds$Condition, ref = "8hpa")
 dds2 <- estimateSizeFactors(dds)
 dds2 <- DESeq(dds2)
 #resultsNames(dds2)
-res23 <- results(dds2, name="Condition_3jpa_vs_8hpa")
+res38 <- results(dds2, name="Condition_3jpa_vs_8hpa")
 print("Number of DE genes :")
-table(res23$padj < 0.05)
+table(res38$padj < 0.05)
+
+nc1=grep("3jpa", metaEmbryo$Description)
+nc2=grep("8hpa", metaEmbryo$Description)
+res38$Mean1=rowMeans(norm.counts[,nc1])
+res38$Mean2=rowMeans(norm.counts[,nc2])
+res38$FC=ifelse(res38$Mean1>res38$Mean2,res38$Mean1/res38$Mean2, -res38$Mean2/res38$Mean1)
+colnames(res38)[7:8]=c("Mean_3jpa","Mean_8hpa")
+#write.table(res38, "Embryo_3jpa_vs_8hpa.txt", sep="\t", quote=F, dec=",")
+
 ```
 
 
-## 0dpa vs 3jpa
+## 3jpa vs 6jpf
 
-```{r, echo=F, message=F, warning=F}
+```{r, echo=T, message=F, warning=F}
 dds=DESeqDataSetFromMatrix(countData=count, colData=info, design=~Lignes+Condition)
-dds$Condition <- relevel(dds$Condition, ref = "3jpa")
+dds$Condition <- relevel(dds$Condition, ref = "6jpf")
 
 dds3 <- estimateSizeFactors(dds)
 dds3 <- DESeq(dds3)
 #resultsNames(dds3)
-res03 <- results(dds3, name="Condition_0hpa_vs_3jpa")
+res63 <- results(dds3, name="Condition_3jpa_vs_6jpf")
 print("Number of DE genes :")
-table(res03$padj < 0.05)
+table(res63$padj < 0.05)
+
+nc1=grep("3jpa", metaEmbryo$Description)
+nc2=grep("6jpf", metaEmbryo$Description)
+res63$Mean1=rowMeans(norm.counts[,nc1])
+res63$Mean2=rowMeans(norm.counts[,nc2])
+res63$FC=ifelse(res63$Mean1>res63$Mean2,res63$Mean1/res63$Mean2, -res63$Mean2/res63$Mean1)
+colnames(res63)[7:8]=c("Mean_3jpa","Mean_6jpf")
+#write.table(res63, "Embryo_3jpa_vs_6jpf.txt", sep="\t", quote=F, dec=",")
+```
+
+
+## 3jpa vs 0hpa
+
+```{r, echo=T, message=F, warning=F}
+dds=DESeqDataSetFromMatrix(countData=count, colData=info, design=~Lignes+Condition)
+dds$Condition <- relevel(dds$Condition, ref = "0hpa")
+
+dds3 <- estimateSizeFactors(dds)
+dds3 <- DESeq(dds3)
+#resultsNames(dds3)
+res30 <- results(dds3, name="Condition_3jpa_vs_0hpa")
+print("Number of DE genes :")
+table(res30$padj < 0.05)
+
+nc1=grep("3jpa", metaEmbryo$Description)
+nc2=grep("0hpa", metaEmbryo$Description)
+res30$Mean1=rowMeans(norm.counts[,nc1])
+res30$Mean2=rowMeans(norm.counts[,nc2])
+res30$FC=ifelse(res30$Mean1>res30$Mean2,res30$Mean1/res30$Mean2, -res30$Mean2/res30$Mean1)
+colnames(res30)[7:8]=c("Mean_3jpa","Mean_0hpa")
+#write.table(res30, "Embryo_3jpa_vs_0hpa.txt", sep="\t", quote=F, dec=",")
 ```
